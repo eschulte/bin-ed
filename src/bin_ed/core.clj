@@ -59,16 +59,41 @@
                  (concat [(f (bytes-to-num (take n bytes))) k]
                          out)))))))
 
+(defn size-of "Return size of template in bytes." [template]
+  (reduce + (map (fn [[_ v]] (first (eval (concat ['case v] binary-types [v]))))
+                 (partition 2 template))))
+
 (comment
-  (parse (file-to-bytes "data/a.out")
-         ;; elf header ident
-         [:mag0       :byte
-          :mag1       :char
-          :mag2       :char
-          :mag3       :char
-          :class      :byte
-          :data       :byte
-          :version    :byte
-          :osabi      :byte
-          :abiversion :byte
-          :padding    [7 (fn [_] nil)]]))
+  ;; example: parse the header of an elf file
+  (let [a-out (file-to-bytes "data/a.out")
+        head-ident-tmpl [:mag0       :byte
+                         :mag1       :char
+                         :mag2       :char
+                         :mag3       :char
+                         :class      :byte
+                         :data       :byte
+                         :ei_version :byte
+                         :osabi      :byte
+                         :abiversion :byte
+                         :padding    [7 (fn [_] nil)]]
+        head-ident (parse a-out head-ident-tmpl)
+        ;; address and offset sizes vary on 32 and 64 bit machines
+        size (case (int (:class (apply hash-map head-ident)))
+                   1 :uint32 2 :uint64)
+        head-rest-tmpl [:type        :uint16
+                        :machine     :uint16
+                        :elf_version :uint32
+                        :entry       size
+                        :phoff       size
+                        :shoff       size
+                        :flags       :uint32
+                        :ehsize      :uint16
+                        :phentsize   :uint16
+                        :phnum       :uint16
+                        :shentsize   :uint16
+                        :shnum       :uint16
+                        :shstrndx    :uint16]]
+    (concat
+     head-ident
+     (parse (drop (size-of head-ident-tmpl) a-out) head-rest-tmpl)))
+  )
