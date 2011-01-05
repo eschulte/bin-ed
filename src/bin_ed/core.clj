@@ -15,15 +15,9 @@
   (let [stream (FileOutputStream. path)]
     (.write stream (byte-array bytes))))
 
-(defn bytes-to-num "Concat a seq of bytes into a number." [bytes]
-  (reduce (fn [a b] (+ (bit-shift-left a 8) b)) 0 (reverse bytes)))
-
-(defn num-to-bytes "Concat a seq of bytes into a number." [num size]
-  (map (fn [n] (byte (if (> n 127) (- 255 n) n)))
-       (second
-        (reduce
-         (fn [[l bs] n] [(rem l n) (cons (int (/ l n)) bs)]) [num nil]
-         (reverse (map (comp (partial expt 2) (partial * 8)) (range size)))))))
+(defn ubyte "Unsign a byte" [x]
+  (let [b (byte x)]
+    (if (neg? b) (+ 0x100 b) b)))
 
 (defn uint16 "Convert an int16 to a uint16" [x]
   (let [int16 (short x)]
@@ -36,6 +30,16 @@
 (defn uint64 "Convert an int64 to a uint64" [x]
   (let [int64 (int x)]
     (if (neg? int64) (+ 0x10000000000000000 int64) int64)))
+
+(defn bytes-to-num "Concat a seq of bytes into a number." [bytes]
+  (reduce (fn [a b] (+ (bit-shift-left a 8) b)) 0 (map ubyte (reverse bytes))))
+
+(defn num-to-bytes "Concat a seq of bytes into a number." [num size]
+  (map (fn [n] (byte (if (> n 127) (- 255 n) n)))
+       (second
+        (reduce
+         (fn [[l bs] n] [(rem l n) (cons (int (/ l n)) bs)]) [num nil]
+         (reverse (map (comp (partial expt 2) (partial * 8)) (range size)))))))
 
 
 ;;; public functions
