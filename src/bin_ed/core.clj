@@ -1,6 +1,6 @@
 (ns bin-ed.core
   (:use clojure.contrib.math)
-  (:import (java.io FileInputStream FileReader File)
+  (:import (java.io FileOutputStream FileInputStream FileReader File)
            (java.nio Buffer ByteBuffer CharBuffer)))
 
 
@@ -10,6 +10,10 @@
         ary (byte-array (.available stream))]
     (.read stream ary)
     (seq ary)))
+
+(defn bytes-to-file [path bytes]
+  (let [stream (FileOutputStream. path)]
+    (.write stream (byte-array bytes))))
 
 (defn bytes-to-num "Concat a seq of bytes into a number." [bytes]
   (reduce (fn [a b] (+ (bit-shift-left a 8) b)) 0 (reverse bytes)))
