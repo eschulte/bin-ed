@@ -18,6 +18,13 @@
 (defn bytes-to-num "Concat a seq of bytes into a number." [bytes]
   (reduce (fn [a b] (+ (bit-shift-left a 8) b)) 0 (reverse bytes)))
 
+(defn num-to-bytes "Concat a seq of bytes into a number." [num size]
+  (map (fn [n] (byte (if (> n 127) (- 255 n) n)))
+       (second
+        (reduce
+         (fn [[l bs] n] [(rem l n) (cons (int (/ l n)) bs)]) [num nil]
+         (reverse (map (comp (partial expt 2) (partial * 8)) (range size)))))))
+
 (defn uint16 "Convert an int16 to a uint16" [x]
   (let [int16 (short x)]
     (if (neg? int16) (+ 0x10000 int16) int16)))
@@ -33,7 +40,7 @@
 
 ;;; public functions
 (def binary-types
-  [;; identifier [size-in-bytes conversion-function]
+  [;; identifier [size-in-bytes reading-function]
    :byte    [1 byte]
    :char    [1 char]
    :int16   [2 short]
@@ -47,8 +54,8 @@
    ])
 
 (defn parse
-  "Parse a series of bits according to an Alister template"
-  [bytes template]
+  "Parse a series of bits according to a property list template"
+  [template bytes]
   (loop [bytes bytes
          tmpl (partition 2 template)
          out {}]
@@ -62,6 +69,16 @@
                  (rest tmpl)
                  (concat [(f (bytes-to-num (take n bytes))) k]
                          out)))))))
+
+(defn dump
+  "Dump a hash to a binary file according to a property list template"
+  [template hash]
+  (apply concat
+         (map (fn [[k v]]
+                (num-to-bytes
+                 (let [val (get hash k)] (if (number? val) val (int (or val 0))))
+                 (first (eval (concat ['case v] binary-types [v])))))
+              (partition 2 template))))
 
 (defn size-of "Return size of template in bytes." [template]
   (reduce + (map (fn [[_ v]] (first (eval (concat ['case v] binary-types [v]))))
@@ -80,7 +97,7 @@
                          :osabi      :byte
                          :abiversion :byte
                          :padding    [7 (fn [_] nil)]]
-        head-ident (parse a-out head-ident-tmpl)
+        head-ident (parse head-ident-tmpl a-out)
         ;; address and offset sizes vary on 32 and 64 bit machines
         size (case (int (:class (apply hash-map head-ident)))
                    1 :uint32 2 :uint64)
@@ -97,7 +114,13 @@
                         :shentsize   :uint16
                         :shnum       :uint16
                         :shstrndx    :uint16]]
-    (concat
-     head-ident
-     (parse (drop (size-of head-ident-tmpl) a-out) head-rest-tmpl)))
+    ;; read the header into a hash
+    (def header
+      (apply hash-map
+             (concat
+              head-ident
+              (parse head-rest-tmpl (drop (size-of head-ident-tmpl) a-out)))))
+    ;; write just the header out to a separate file
+    (bytes-to-file "data/test.out"
+                   (dump (concat head-ident-tmpl head-rest-tmpl) header)))
   )
