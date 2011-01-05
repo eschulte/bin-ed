@@ -55,7 +55,7 @@
     (if (empty? tmpl)
       (reverse out)
       (if (empty? bytes)
-        (throw "Insufficient bytes for template.")
+        (throw (Error. "Insufficient bytes for template."))
         (let [[k v] (first tmpl)
               [n f] (eval (concat ['case v] binary-types [v]))]
           (recur (drop n bytes)
