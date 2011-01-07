@@ -16,20 +16,16 @@
     (.write stream (byte-array bytes))))
 
 (defn ubyte "Unsign a byte" [x]
-  (let [b (byte x)]
-    (if (neg? b) (+ 0x100 b) b)))
+  (bit-and 0xff (byte x)))
 
 (defn uint16 "Convert an int16 to a uint16" [x]
-  (let [int16 (short x)]
-    (if (neg? int16) (+ 0x10000 int16) int16)))
+  (bit-and 0xffff (short x)))
 
 (defn uint32 "Convert an int32 to a uint32" [x]
-  (let [int32 (int x)]
-    (if (neg? int32) (+ 0x100000000 int32) int32)))
+  (bit-and 0xffffffff (int x)))
 
 (defn uint64 "Convert an int64 to a uint64" [x]
-  (let [int64 (int x)]
-    (if (neg? int64) (+ 0x10000000000000000 int64) int64)))
+  (bit-and 0xffffffffffffffff (int x)))
 
 (defn bytes-to-num "Concat a seq of bytes into a number." [bytes]
   (reduce (fn [a b] (+ (bit-shift-left a 8) b)) 0 (map ubyte (reverse bytes))))
